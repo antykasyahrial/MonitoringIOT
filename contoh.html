@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Demo MQTT</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="mqttws31.js" type="text/javascript"></script>
+    <!-- <script src="jquery.min.js" type="text/javascript"></script> -->
+    <script src="config.js" type="text/javascript"></script>
+
+    <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
+	<script src="assets/bootstrap/js/jquery.min.js"></script>
+	<script src="assets/bootstrap/js/bootstrap.min.js"></script>
+
+	<script src="assets/highcharts/highstock.js"></script>
+	<script src="assets/highcharts/series-label.js"></script>
+	<script src="assets/highcharts/exporting.js"></script>
+	<script src="assets/highcharts/export-data.js"></script>
+
+    <script type="text/javascript">
+    var mqtt;
+    var reconnectTimeout = 2000;
+    var data_kelembapan = [];
+    var chart;
+
+    function drawChart(){
+    	chart = Highcharts.stockChart('container', {
+
+	    title: {
+	        text: '<b>MONITORING KELEMBAPAN TANAH</b>'
+	    },
+
+	    subtitle: {
+	        text: 'Internet Of Things'
+	    },
+	    time: {
+        	useUTC: false
+    	},
+	    yAxis: {
+	        title: {
+	            text: 'Tingkat Kelembapan Tanah'
+	        }
+	    },
+	    legend: {
+	        layout: 'vertical',
+	        align: 'right',
+	        verticalAlign: 'middle'
+	    },
+
+	    plotOptions: {
+	        series: {
+	            label: {
+	                connectorAllowed: false
+	            },
+	            pointStart: 10
+	        }
+	    },
+
+	    series: [{
+	        name: 'Kelembapan Tanah',
+	        data: data_kelembapan,
+	    },],
+
+	    responsive: {
+	        rules: [{
+	            condition: {
+	                maxWidth: 500
+	            },
+	            chartOptions: {
+	                legend: {
+	                    layout: 'horizontal',
+	                    align: 'center',
+	                    verticalAlign: 'bottom'
+	                }
+	            }
+	        }]
+	    }
+		});
+    }
+    
+    function MQTTconnect() {
+        if (typeof path == "undefined") {
+            path = '/mqtt';
+        }
+        //prosedur
+        mqtt = new Paho.MQTT.Client(
+            host,
+            port,
+            path,
+            "web_" + parseInt(Math.random() * 100, 10)
+        );
+        var options = {
+            timeout: 3,
+            useSSL: useTLS,
+            cleanSession: cleansession,
+            onSuccess: onConnect,
+            onFailure: function (message) {
+                $('#status').val("Koneksi gagal: " + message.errorMessage + ". Mencoba lagi.");
+                setTimeout(MQTTconnect, reconnectTimeout);
+            }
+        };
+
+        mqtt.onConnectionLost = onConnectionLost;
+        mqtt.onMessageArrived = onMessageArrived;
+
+        if (username != null) {
+            options.userName = username;
+            options.password = password;
+        }
+        console.log("Host="+ host + ", port=" + port + ", path=" + path + " TLS = " + useTLS + " username=" + username + " password=" + password);
+        mqtt.connect(options);
+    }
+
+    function onConnect() {
+        $('#status').text('Terhubung ke ' + host + ':' + port + path);
+        // Connection succeeded; subscribe to our topic
+        mqtt.subscribe(topic1, {qos: 0});
+        mqtt.subscribe(topic2, {qos: 0});
+        $('#topic').text(topic1);
+    }
+
+    function onConnectionLost(response) {
+        setTimeout(MQTTconnect, reconnectTimeout);
+        $('#status').val("Sambungan putus: " + responseObject.errorMessage + ". Mencoba lagi.");
+
+    };
+
+    function onMessageArrived(message) {
+        var topic = message.destinationName;
+        var payload = message.payloadString;
+
+        if (topic==topic2)
+        {
+            if (payload=='1')
+            {
+                $('#servo').css("background-color", "green");
+                $('#servo').text('BUKA');
+            }else
+            {
+                $('#servo').css("background-color", "red");
+                $('#servo').text('TUTUP');
+            }
+            
+
+        }else
+        {
+            var x = (new Date()).getTime(), // current time
+            y = parseFloat(payload);
+
+            chart.series[0].addPoint([x,y]);
+
+            var nilai = Math.abs(y);
+            $('#ws').html('<li>' + topic + ' = ' + nilai + '%</li>');
+        }
+       
+    };
+
+    $(document).ready(function() {
+    	drawChart();
+        MQTTconnect();
+    });
+
+    </script>
+    <style>
+    * { font-family: "Calibri","Ubuntu","Arial", sans-serif; }
+    span { font-weight: bold; }
+    ul { margin-left: 0;}
+    </style>
+
+  </head>
+
+<body>
+
+	<div class="row">
+	<div class="col-lg-12">
+		<ol class="breadcrumb">
+			<li><a href=""><i class="fa fa-dashboard"></i></a></li>
+			<li><a href="#index">Tanah</a></li>
+			<li class="active">Kelembaban</li>
+		</ol>
+	</div>
+</div>
+
+<div class="row">
+	<div class="col-lg-12">
+		<div id="container"></div>
+	
+        <div>
+        Subscribed topik: <span id='topic'></span><br />
+        Status sambungan: <span id='status'></span></div>
+        Status Servo : <b id="servo" style="padding: 0 30px; color: white"></b>
+
+        <ul id='ws' style="font-family: 'Courier New', Courier, monospace;"></ul>
+    </div>
+
+</div>
+
+
+<script type="text/javascript">
+	
+
+</script>
+
+</body>
+</html>
